@@ -1,0 +1,19 @@
+# Datos crudos CERT — NO versionar (varios GB)
+CERT dataset/
+data/raw/
+*.csv
+*.tar.bz2
+
+# Parquets intermedios generados
+data/processed/*.parquet
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Sistema
+desktop.ini
+.DS_Store
