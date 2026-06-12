@@ -5,27 +5,29 @@
 
 ---
 
-## Estado actual del dataset
+## Estado actual del dataset — ✅ COMPLETO (fase 0 terminada)
 
-| Fichero                   | Estado        | Tamaño aprox.              |
-| ------------------------- | ------------- | -------------------------- |
-| `email.csv`               | ✅ Disponible | 1.36 GB                    |
-| `psychometric.csv`        | ✅ Disponible | 44 KB                      |
-| `logon.csv`               | ❌ Falta      | ~200 MB                    |
-| `device.csv`              | ❌ Falta      | ~40 MB                     |
-| `file.csv`                | ❌ Falta      | ~450 MB                    |
-| `http.csv`                | ❌ Falta      | ~9 GB ⚠️                   |
-| LDAP (carpeta)            | ❌ Falta      | ~10 MB                     |
-| `answers/` (ground truth) | ❌ Falta      | ~1 MB — **imprescindible** |
+Descargado de [KiltHub (CMU)](https://kilthub.cmu.edu/articles/dataset/Insider_Threat_Test_Dataset/12841247) y verificado en `data/raw/r4.2/` + `answers/`:
 
-> ⚠️ **Aviso OneDrive:** la carpeta del proyecto está dentro de OneDrive. Los datos (varios GB) deben ir fuera de OneDrive (p.ej. `C:\datos\CERT\r4.2`). De hecho ya hemos perdido un fichero (PLAN.md) por la sincronización — extremar precaución.
+| Fichero                | Estado | Tamaño real                                    |
+| ---------------------- | ------ | ---------------------------------------------- |
+| `logon.csv`            | ✅     | 58 MB                                          |
+| `device.csv`           | ✅     | 29 MB                                          |
+| `email.csv`            | ✅     | 1.36 GB                                        |
+| `file.csv`             | ✅     | 193 MB                                         |
+| `http.csv`             | ✅     | **14.5 GB** ⚠️ (no se usa hasta fase 6)        |
+| `LDAP/` (mensuales)    | ✅     | —                                              |
+| `psychometric.csv`     | ✅     | 44 KB                                          |
+| `answers/insiders.csv` | ✅     | 70 insiders r4.2: 30 esc.1, 30 esc.2, 10 esc.3 |
+
+> ✅ **OneDrive eliminado.** El proyecto vive ahora en `C:\Users\rafap\Desktop\SIEM` (local, sin sincronización). El entrenamiento pesado se hará en **Google Colab** montando Drive, con los datos en `MyDrive/CERT_data/` (ver CLAUDE.md). ⚠️ No subir `http.csv` a Drive (14.5 GB no cabe en el tier gratuito).
 
 ---
 
-## Fase 0 — Completar el dataset
+## Fase 0 — Completar el dataset ✅ HECHA
 
-- Descargar de [KiltHub (CMU)](https://kilthub.cmu.edu/articles/dataset/Insider_Threat_Test_Dataset/12841247) `r4.2.tar.bz2` y `answers.tar.bz2` (el ground truth: qué usuarios son insiders, qué escenario ejecutan y en qué fechas).
-- **Decisión tomada:** empezar **sin** `http.csv` (9 GB) y añadirlo en la fase 6 si hace falta.
+- ~~Descargar `r4.2.tar.bz2` y `answers.tar.bz2`~~ — completado y verificado.
+- **Decisión tomada:** empezar **sin** `http.csv` (14.5 GB) y añadirlo en la fase 6 si hace falta.
 
 ## Fase 1 — Exploración de datos (EDA)
 
