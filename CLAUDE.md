@@ -86,7 +86,7 @@ SIEM/
 ├── answers/               # ground truth (insiders.csv, scenarios.txt) — NO en git
 ├── data/raw/r4.2/         # CSVs crudos — NO en git
 ├── data/processed/        # parquets intermedios — NO en git
-├── notebooks/             # 01_eda, 02_features, 03_evaluacion (ejecutables en Colab)
+├── 01_eda.ipynb ...        # cuadernos en la raíz (ejecutables en Colab)
 ├── src/
 │   ├── config.py          # ÚNICA fuente de rutas/constantes (autodetecta Colab)
 │   ├── ingest/            # lectura+limpieza CSV → parquet tipado

@@ -109,7 +109,7 @@ Salida común: **score de riesgo por usuario-día** → agregable a score por us
 SIEM/
 ├── CERT dataset/          # datos crudos (excluir de git y OneDrive)
 ├── data/processed/        # parquets intermedios
-├── notebooks/             # 01_eda, 02_features, 03_evaluacion
+├── 01_eda.ipynb ...        # cuadernos en la raíz del proyecto
 ├── src/
 │   ├── config.py          # rutas centralizadas
 │   ├── ingest/  features/  models/  eval/

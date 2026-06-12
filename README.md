@@ -12,7 +12,7 @@ Ver [PLAN.md](PLAN.md) para el plan completo de fases.
 SIEM/
 ├── CERT dataset/          # datos crudos (NO versionado — ver .gitignore)
 ├── data/processed/        # parquets intermedios generados
-├── notebooks/             # 01_eda, 02_features, 03_evaluacion
+├── 01_eda.ipynb ...        # cuadernos en la raíz del proyecto
 ├── src/
 │   ├── config.py          # rutas y constantes (editar DATA_DIR aquí)
 │   ├── ingest/            # lectura y limpieza de CSVs
