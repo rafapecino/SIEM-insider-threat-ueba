@@ -49,6 +49,9 @@ El proyecto se desarrolla en **dos entornos** y el código debe funcionar en amb
 ### Ground truth (`answers/insiders.csv`)
 
 `dataset,scenario,details,user,start,end` — filtrar `dataset == "4.2"`.
+⚠️ **Gotcha verificado**: leer con `schema_overrides={"dataset": pl.Utf8}` — si no,
+Polars infiere la columna como float (valores 2, 3.1, 4.2…) y el filtro string falla.
+
 **70 insiders en r4.2**: 30 escenario 1, 30 escenario 2, 10 escenario 3:
 
 1. **Fuga a wikileaks**: usuario sin historial de USB ni horario nocturno empieza
@@ -64,6 +67,17 @@ incidente (NO son CSV bien formados — filas de longitud variable con tipo en c
 
 - El desbalanceo es extremo (>99.9% benigno). **Nunca usar accuracy**; usar
   precision/recall/F1/AUC-PR y "alertas/día" como métrica operativa.
+
+### Hechos verificados contra los datos (smoke test, no re-derivar)
+
+- `logon.csv`: 854.859 eventos, **1.000 usuarios**, 2010-01-02 → 2011-05-17.
+- `device.csv`: 405.380 eventos; solo **265/1000 usuarios usan USB** — el uso de
+  USB en sí ya es discriminativo.
+- LDAP: 18 snapshots; columnas `employee_name,user_id,email,role,business_unit,
+functional_unit,department,team,supervisor`.
+- **155 bajas** en el periodo y los **70 insiders están todos entre las bajas** —
+  la baja es consecuencia de los escenarios (señal fuerte, pero solo visible a
+  posteriori: no usarla como feature predictiva en tiempo real, sí para validar).
 
 ## Arquitectura
 
