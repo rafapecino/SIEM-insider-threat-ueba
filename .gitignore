@@ -1,6 +1,7 @@
 # Datos crudos CERT — NO versionar (varios GB)
 CERT dataset/
 data/raw/
+answers/
 *.csv
 *.tar.bz2
 
