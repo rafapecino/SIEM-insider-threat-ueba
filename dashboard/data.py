@@ -42,6 +42,78 @@ SUSPICIOUS_FEATURES = [
     "n_afterhours_file_copies",
 ]
 
+# Nombres en lenguaje llano para la UI (no técnico).
+FEATURE_LABELS = {
+    "n_usb_connects": "Conexiones de memoria USB",
+    "n_afterhours_usb": "USB conectada fuera de horario",
+    "n_afterhours_logons": "Accesos fuera de horario",
+    "n_other_pc_logons": "Accesos desde un PC ajeno",
+    "n_external_emails": "Emails a direcciones externas",
+    "n_file_copies": "Ficheros copiados a USB",
+    "n_afterhours_file_copies": "Copias de ficheros fuera de horario",
+}
+
+# Niveles de riesgo y su color (semáforo).
+RISK_COLORS = {"Alto": "#e03131", "Medio": "#f08c00", "Bajo": "#2f9e44"}
+
+
+def risk_band(score: float, threshold: float, p95: float) -> str:
+    """Clasifica un score en un nivel de riesgo de semáforo.
+
+    - Alto: supera el umbral de alerta (se investigaría).
+    - Medio: por debajo del umbral pero en el 5% superior de la población.
+    - Bajo: comportamiento normal.
+    """
+    if score >= threshold:
+        return "Alto"
+    if score >= p95:
+        return "Medio"
+    return "Bajo"
+
+
+def score_p95(scores: pl.DataFrame, model: str) -> float:
+    """Percentil 95 del score, usado como corte del nivel de riesgo 'Medio'."""
+    return float(scores.select(pl.col(model).quantile(0.95, "higher")).item())
+
+
+def explain_user_day(
+    features: pl.DataFrame, user: str, day, top_n: int = 4
+) -> list[dict]:
+    """Explica en lenguaje llano por qué un día concreto de un usuario es
+    sospechoso: compara su comportamiento ese día con SU PROPIA media histórica.
+
+    Devuelve una lista de dicts {label, value, avg} con las conductas que ese
+    día estuvieron por encima de lo habitual para ese usuario, ordenadas por
+    cuánto se desvían. Si no hay nada elevado, devuelve lista vacía.
+    """
+    day_row = features.filter(
+        (pl.col("user") == user) & (pl.col("day") == day)
+    ).select(SUSPICIOUS_FEATURES)
+    if day_row.height == 0:
+        return []
+
+    user_avg = (
+        features.filter(pl.col("user") == user)
+        .select([pl.col(f).mean().alias(f) for f in SUSPICIOUS_FEATURES])
+    )
+
+    reasons = []
+    for f in SUSPICIOUS_FEATURES:
+        value = float(day_row[f][0])
+        avg = float(user_avg[f][0])
+        if value > 0 and value > avg:
+            reasons.append(
+                {
+                    "label": FEATURE_LABELS[f],
+                    "value": value,
+                    "avg": avg,
+                    "delta": value - avg,
+                }
+            )
+
+    reasons.sort(key=lambda r: r["delta"], reverse=True)
+    return reasons[:top_n]
+
 
 def load_scores() -> pl.DataFrame:
     """Carga la tabla de scores usuario-día."""
