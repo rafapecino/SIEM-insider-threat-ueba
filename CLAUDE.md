@@ -100,6 +100,13 @@ SIEM/
 Flujo de datos: `CSV crudo → (ingest) → parquet eventos → (features) → parquet
 usuario-día → (models) → scores → (eval / dashboard)`.
 
+Modelos (en `user_day_scores.parquet`, todos mayor=más anómalo): `score_rules`,
+`score_iforest`, `score_autoencoder` (notebook 03) y `score_transformer`
+(notebook **03b**, secuencias temporales, ataca el escenario 2). El transformer
+debe entrenarse en **GPU de Colab** (EPOCHS=40); en local el notebook solo valida
+el pipeline (2 épocas) y deja un `score_transformer` NO representativo. Existe
+`user_day_scores.backup.parquet` (8 cols, sin transformer) por si hay que revertir.
+
 ## Convenciones de código
 
 - **Polars** para todo el procesamiento de datos (no pandas, salvo interoperabilidad
