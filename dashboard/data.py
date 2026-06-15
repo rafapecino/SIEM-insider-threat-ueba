@@ -25,10 +25,29 @@ FEATURES_FILE = PROCESSED_DIR / "user_day_features.parquet"
 
 # Modelos disponibles: clave de columna -> nombre legible para la UI
 MODELS = {
-    "score_rules": "Reglas (baseline)",
+    "score_rules": "Reglas",
     "score_iforest": "Isolation Forest",
     "score_autoencoder": "Autoencoder",
+    "score_transformer": "Transformer temporal",
 }
+
+# Especialidad de cada detector: en qué tipo de amenaza es más fiable.
+MODEL_SPECIALTY = {
+    "score_rules": "Accesos fuera de horario y uso de USB (robo directo)",
+    "score_iforest": "Anomalías generales de comportamiento",
+    "score_autoencoder": "Desviaciones sutiles del patrón normal",
+    "score_transformer": "Cambios y escaladas en el tiempo",
+}
+
+# Tipos de amenaza (casuística) detectables a partir de la conducta cruda.
+THREAT_TYPES = [
+    "Exfiltración por USB",
+    "Acceso a PC ajeno",
+    "Fuga por email",
+    "Actividad fuera de horario",
+    "Uso de USB",
+    "Comportamiento normal",
+]
 
 # Las 7 features "sospechosas" usadas por el baseline de reglas, mostradas
 # en el drill-down por usuario para explicar por qué un día es anómalo.
@@ -197,6 +216,185 @@ def user_timeline(
         "day"
     )
     return timeline
+
+
+def add_unified_risk(scores: pl.DataFrame) -> pl.DataFrame:
+    """Añade al dataframe de scores el riesgo unificado multi-detector.
+
+    Para cada uno de los 4 modelos calcula su percentil (`<model>_pct`,
+    0-1, mayor=más anómalo). El `risk` final es el MÁXIMO percentil entre
+    los 4 detectores (si cualquier especialista lo ve muy anómalo, salta),
+    y `detector` es la clave del modelo responsable de ese máximo.
+    """
+    height = scores.height
+    pct_cols = [
+        (pl.col(m).rank(method="average") / height).alias(f"{m}_pct")
+        for m in MODELS
+    ]
+    out = scores.with_columns(pct_cols)
+
+    pct_names = [f"{m}_pct" for m in MODELS]
+    out = out.with_columns(
+        pl.max_horizontal(pct_names).alias("risk")
+    )
+
+    # Detector responsable: el de mayor percentil para esa fila.
+    detector_expr = pl.lit(list(MODELS.keys())[0])
+    for m in list(MODELS.keys())[1:]:
+        detector_expr = (
+            pl.when(pl.col(f"{m}_pct") == pl.col("risk"))
+            .then(pl.lit(m))
+            .otherwise(detector_expr)
+        )
+    out = out.with_columns(detector_expr.alias("detector"))
+
+    return out
+
+
+def classify_threats(features: pl.DataFrame) -> pl.DataFrame:
+    """Clasifica cada usuario-día en un tipo de amenaza (casuística) según
+    su conducta cruda dominante, con prioridad descendente.
+
+    Devuelve un dataframe (user, day, threat_type).
+    """
+    # Media de emails externos por usuario, para "Fuga por email".
+    user_email_avg = features.group_by("user").agg(
+        pl.col("n_external_emails").mean().alias("avg_external_emails")
+    )
+
+    df = features.select(
+        "user", "day",
+        "n_file_copies", "n_afterhours_file_copies",
+        "n_other_pc_logons", "n_external_emails",
+        "n_afterhours_logons", "n_afterhours_usb", "n_usb_connects",
+    ).join(user_email_avg, on="user", how="left")
+
+    threat_type = (
+        pl.when(
+            (pl.col("n_file_copies") > 0) | (pl.col("n_afterhours_file_copies") > 0)
+        ).then(pl.lit("Exfiltración por USB"))
+        .when(pl.col("n_other_pc_logons") > 0).then(pl.lit("Acceso a PC ajeno"))
+        .when(
+            (pl.col("n_external_emails") > 0)
+            & (pl.col("n_external_emails") > pl.col("avg_external_emails"))
+        ).then(pl.lit("Fuga por email"))
+        .when(
+            (pl.col("n_afterhours_logons") > 0) | (pl.col("n_afterhours_usb") > 0)
+        ).then(pl.lit("Actividad fuera de horario"))
+        .when(pl.col("n_usb_connects") > 0).then(pl.lit("Uso de USB"))
+        .otherwise(pl.lit("Comportamiento normal"))
+        .alias("threat_type")
+    )
+
+    return df.with_columns(threat_type).select("user", "day", "threat_type")
+
+
+def detector_label(key: str) -> str:
+    """Nombre legible de un detector a partir de su clave de columna."""
+    return MODELS.get(key, key)
+
+
+def scenario_name(n) -> str:
+    """Nombre legible de un escenario del ground truth."""
+    names = {
+        0: "—",
+        1: "Esc.1: Fuga a Wikileaks",
+        2: "Esc.2: Robo antes de marcharse",
+        3: "Esc.3: Sabotaje de sysadmin",
+    }
+    try:
+        return names.get(int(n), "—")
+    except (TypeError, ValueError):
+        return "—"
+
+
+def risk_watchlist(
+    scores_enriched: pl.DataFrame,
+    features_threats: pl.DataFrame,
+    top_n: int = 50,
+    filters: dict | None = None,
+) -> pl.DataFrame:
+    """Ranking de usuarios por su riesgo unificado máximo (multi-detector).
+
+    `scores_enriched` debe llevar ya las columnas `risk` y `detector`
+    (ver `add_unified_risk`). `features_threats` debe llevar `threat_type`
+    por (user, day) (ver `classify_threats`).
+
+    `filters` (opcional) admite las claves:
+    - risk_min: float 0-1, riesgo mínimo (se aplica ANTES de agregar).
+    - threat_type: lista de tipos de amenaza permitidos.
+    - department: lista de departamentos permitidos.
+    - scenario: int, escenario del ground truth (modo demo).
+
+    Devuelve por usuario: peak_day, risk (0-100, 1 decimal), detector
+    (nombre legible), threat_type del día pico, role, department,
+    is_insider_user, scenario.
+    """
+    join_cols = ["user", "day", "threat_type"]
+    extra_cols = [c for c in ("role", "department") if c in features_threats.columns]
+    df = scores_enriched.join(
+        features_threats.select(*join_cols, *extra_cols),
+        on=["user", "day"], how="left",
+    )
+
+    filters = filters or {}
+    if filters.get("risk_min") is not None:
+        df = df.filter(pl.col("risk") >= filters["risk_min"])
+    if filters.get("threat_type"):
+        df = df.filter(pl.col("threat_type").is_in(filters["threat_type"]))
+    if filters.get("department"):
+        df = df.filter(pl.col("department").is_in(filters["department"]))
+    if filters.get("scenario") is not None:
+        df = df.filter(pl.col("scenario") == filters["scenario"])
+
+    if df.height == 0:
+        return df.head(0).select(
+            "user", "peak_day", "risk", "detector", "threat_type",
+            "role", "department", "is_insider_user", "scenario",
+        )
+
+    per_user_max = (
+        df.sort("risk", descending=True)
+        .group_by("user")
+        .head(1)
+        .with_columns(
+            (pl.col("risk") * 100).round(1).alias("risk"),
+            pl.col("day").alias("peak_day"),
+            pl.col("detector").replace(MODELS).alias("detector"),
+        )
+        .select(
+            "user", "peak_day", "risk", "detector", "threat_type",
+            "role", "department", "is_insider_user", "scenario",
+        )
+        .sort("risk", descending=True)
+        .head(top_n)
+    )
+    return per_user_max
+
+
+def alerts_summary(scores_enriched: pl.DataFrame, risk_threshold: float) -> dict:
+    """Métricas operativas de alertas usando el riesgo unificado `risk`.
+
+    Igual que `alerts_at_threshold` pero sobre la columna `risk`.
+    """
+    n_days = scores_enriched.select(pl.col("day").n_unique()).item()
+
+    alerted = scores_enriched.filter(pl.col("risk") >= risk_threshold)
+    n_alerts = alerted.height
+
+    n_malicious = scores_enriched.filter(pl.col("label_malicious_day") == 1).height
+    n_true_positives = alerted.filter(pl.col("label_malicious_day") == 1).height
+
+    recall = (n_true_positives / n_malicious) if n_malicious > 0 else 0.0
+    precision = (n_true_positives / n_alerts) if n_alerts > 0 else 0.0
+    alerts_per_day = (n_alerts / n_days) if n_days > 0 else 0.0
+
+    return {
+        "n_alerts": n_alerts,
+        "alerts_per_day": alerts_per_day,
+        "recall": recall,
+        "precision": precision,
+    }
 
 
 def threshold_for_alert_rate(

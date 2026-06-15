@@ -1,15 +1,15 @@
-"""Dashboard SIEM/UEBA — detección de amenazas internas (CERT r4.2).
+"""Dashboard SIEM/UEBA — panel multi-detector de amenazas internas (CERT r4.2).
 
-Centro de operaciones de seguridad (SOC) interactivo: prioriza usuarios por
-riesgo, explica en lenguaje llano por qué cada uno es sospechoso, y permite
-ajustar la sensibilidad de la detección.
+Centro de operaciones de seguridad (SOC) interactivo: combina 4 detectores
+especializados en un riesgo unificado, atribuye cada alerta al detector
+responsable, clasifica la conducta por tipo de amenaza y permite filtrar
+por casuística.
 
 Ejecutar desde la raíz del proyecto:
     streamlit run dashboard/app.py
 """
-import pandas as pd
-import plotly.graph_objects as go
 import polars as pl
+import plotly.graph_objects as go
 import streamlit as st
 
 from dashboard import data
@@ -18,7 +18,7 @@ from dashboard import data
 # Configuración de página y estilo
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="SOC · Detección de amenazas internas",
+    page_title="SOC · Amenazas internas",
     page_icon="🛡️",
     layout="wide",
 )
@@ -26,66 +26,89 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container { padding-top: 2.2rem; max-width: 1300px; }
+      .block-container { padding-top: 1.6rem; max-width: 1300px; }
       #MainMenu, footer { visibility: hidden; }
+
       div[data-testid="stMetric"] {
         background: rgba(130,140,160,0.08);
         border: 1px solid rgba(130,140,160,0.18);
-        border-radius: 12px; padding: 14px 16px;
+        border-radius: 12px; padding: 12px 16px;
       }
+      .kpi-sub { font-size: 0.78rem; color: #888; margin-top: -6px; }
+      .kpi-val { font-size: 1.6rem; font-weight: 700; }
+
       .verdict {
-        border-radius: 12px; padding: 18px 22px; margin: 6px 0 14px 0;
-        color: #fff; font-size: 1.05rem;
-      }
-      .pill {
-        display:inline-block; padding:2px 10px; border-radius:999px;
-        font-size:0.8rem; font-weight:600; color:#fff;
+        border-radius: 12px; padding: 16px 20px; margin: 6px 0 14px 0;
+        color: #fff; font-size: 1.02rem;
       }
       .reason {
         background: rgba(130,140,160,0.08);
         border-left: 4px solid #f08c00; border-radius: 6px;
         padding: 8px 12px; margin: 6px 0;
       }
+      .badge {
+        display:inline-block; padding:2px 10px; border-radius:999px;
+        font-size:0.82rem; font-weight:600; color:#fff;
+      }
+      .det-badge {
+        display:inline-block; padding:4px 12px; border-radius:8px;
+        font-size:0.9rem; font-weight:600; color:#fff; background:#4c6ef5;
+        margin-bottom: 4px;
+      }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# Paleta sobria
+RED, AMBER, GREEN, BLUE = "#e03131", "#f08c00", "#2f9e44", "#4c6ef5"
+RISK_BADGE = {"Alto": ("🔴", RED), "Medio": ("🟠", AMBER), "Bajo": ("🟢", GREEN)}
+
+
+def risk_verdict(risk_pct: float, threshold_pct: float, p95_pct: float = 0.95) -> str:
+    """Nivel de riesgo (Alto/Medio/Bajo) para un valor de `risk` (0-100)."""
+    r = risk_pct / 100.0
+    if r >= threshold_pct:
+        return "Alto"
+    if r >= p95_pct:
+        return "Medio"
+    return "Bajo"
+
 
 # ---------------------------------------------------------------------------
-# Carga de datos (cacheada)
+# Carga de datos (cacheada): scores + features, riesgo unificado y casuística
 # ---------------------------------------------------------------------------
 @st.cache_data
-def get_scores():
-    return data.load_scores()
+def load_enriched():
+    scores = data.load_scores()
+    features = data.load_features()
+
+    scores_enriched = data.add_unified_risk(scores)
+
+    threats = data.classify_threats(features)
+    threats = threats.join(
+        features.select("user", "day", "role", "department"),
+        on=["user", "day"], how="left",
+    )
+    scores_enriched = scores_enriched.join(
+        threats.select("user", "day", "threat_type"),
+        on=["user", "day"], how="left",
+    )
+
+    return scores_enriched, features, threats
 
 
-@st.cache_data
-def get_features():
-    return data.load_features()
-
-
-scores = get_scores()
-features = get_features()
+with st.spinner("Calculando riesgo…"):
+    scores_enriched, features, threats = load_enriched()
 
 
 # ---------------------------------------------------------------------------
-# Barra lateral: controles en lenguaje llano
+# Barra lateral
 # ---------------------------------------------------------------------------
 st.sidebar.title("🛡️ Centro de seguridad")
-st.sidebar.caption("Detección de empleados con comportamiento anómalo (UEBA)")
+st.sidebar.caption("Panel multi-detector de amenazas internas (UEBA)")
 
-st.sidebar.markdown("### Ajustes")
-
-model_key = st.sidebar.selectbox(
-    "Método de detección",
-    options=list(data.MODELS.keys()),
-    format_func=lambda k: data.MODELS[k],
-    help=(
-        "Cómo se calcula el riesgo. 'Reglas' es transparente y explicable; "
-        "'Isolation Forest' y 'Autoencoder' aprenden patrones automáticamente."
-    ),
-)
+st.sidebar.markdown("### 🎚️ Detección")
 
 sensitivity = st.sidebar.select_slider(
     "Sensibilidad",
@@ -97,127 +120,213 @@ sensitivity = st.sidebar.select_slider(
     ),
 )
 ALERTS_TARGET = {"Baja": 5.0, "Media": 10.0, "Alta": 20.0}[sensitivity]
-threshold = data.threshold_for_alert_rate(scores, model_key, ALERTS_TARGET)
-p95 = data.score_p95(scores, model_key)
+risk_threshold = data.threshold_for_alert_rate(scores_enriched, "risk", ALERTS_TARGET)
 
-show_labels = st.sidebar.toggle("Modo demostración", value=True)
+_summary = data.alerts_summary(scores_enriched, risk_threshold)
 st.sidebar.caption(
-    "Activado: se resaltan los empleados que sabemos que fueron una amenaza "
-    "real, para comprobar si el sistema acierta. En un caso real no se conoce "
-    "esta información de antemano."
+    f"≈ {_summary['alerts_per_day']:.0f} alertas/día · "
+    f"{_summary['recall']:.0%} de amenazas detectadas"
 )
+
+st.sidebar.markdown("### 🔬 Filtros (casuística)")
+
+threat_filter = st.sidebar.multiselect(
+    "Tipo de amenaza",
+    options=data.THREAT_TYPES,
+    default=[],
+    help="Filtra por la conducta dominante del día más anómalo de cada empleado.",
+)
+
+dept_options = sorted(
+    features.select("department").drop_nulls().unique().to_series().to_list()
+)
+dept_filter = st.sidebar.multiselect("Departamento", options=dept_options, default=[])
+
+st.sidebar.markdown("### 🧪 Modo demostración")
+show_labels = st.sidebar.toggle("Activar", value=True)
+st.sidebar.caption(
+    "Resalta los empleados que sabemos fueron una amenaza real (ground truth), "
+    "para validar si el panel acierta. En un caso real no se conoce de antemano."
+)
+
+scenario_filter = None
+if show_labels:
+    scenario_options = {0: "Todos", 1: "Esc.1", 2: "Esc.2", 3: "Esc.3"}
+    scen_sel = st.sidebar.selectbox(
+        "Escenario (solo demo)",
+        options=list(scenario_options.keys()),
+        format_func=lambda k: scenario_options[k],
+    )
+    if scen_sel != 0:
+        scenario_filter = scen_sel
 
 st.sidebar.markdown("---")
 st.sidebar.caption(
     "Datos: **CERT r4.2** · 1.000 empleados · 17 meses de actividad "
-    "(accesos, USB, correo, ficheros)."
+    "(accesos, USB, correo, ficheros). 4 detectores especializados."
 )
 
 
 # ---------------------------------------------------------------------------
-# Cálculos compartidos
+# Watchlist filtrada
 # ---------------------------------------------------------------------------
-alert_stats = data.alerts_at_threshold(scores, model_key, threshold)
-watchlist = data.user_watchlist(scores, model_key, top_n=50)
+filters = {"risk_min": risk_threshold}
+if threat_filter:
+    filters["threat_type"] = threat_filter
+if dept_filter:
+    filters["department"] = dept_filter
+if scenario_filter is not None:
+    filters["scenario"] = scenario_filter
 
-# Nivel de riesgo por usuario de la watchlist
+watchlist = data.risk_watchlist(scores_enriched, threats, top_n=50, filters=filters)
 wl = watchlist.to_pandas()
-wl["Riesgo"] = wl["max_score"].apply(lambda s: data.risk_band(s, threshold, p95))
-n_flagged = int((wl["max_score"] >= threshold).sum())
+
+n_flagged = wl["user"].nunique() if not wl.empty else 0
 
 
 # ---------------------------------------------------------------------------
-# Encabezado
+# Encabezado compacto
 # ---------------------------------------------------------------------------
-st.title("Detección de amenazas internas")
+st.markdown("## 🛡️ SOC · Panel multi-detector de amenazas internas")
 st.caption(
-    "Este panel analiza el comportamiento diario de cada empleado y señala a "
-    "quienes se desvían de lo normal: posibles fugas de información, robo de "
-    "datos o cuentas comprometidas."
+    "Cada usuario-día recibe el riesgo MÁXIMO entre 4 detectores especializados; "
+    "la alerta se atribuye al detector responsable y se clasifica por tipo de amenaza."
 )
 
-tab_resumen, tab_investigar, tab_modelo = st.tabs(
-    ["🏠  Resumen", "🔍  Investigar empleado", "📈  Rendimiento del método"]
+tab_alertas, tab_investigar, tab_rendimiento = st.tabs(
+    ["🛡️ Centro de alertas", "🔍 Investigar empleado", "📈 Rendimiento"]
 )
 
 
 # ===========================================================================
-# PESTAÑA 1 · RESUMEN
+# KPIs superiores
 # ===========================================================================
-with tab_resumen:
-    st.markdown("#### Situación actual")
+def kpi_html(value: str, sub: str, color: str | None = None) -> str:
+    style = f"color:{color};" if color else ""
+    return (
+        f'<div class="kpi-val" style="{style}">{value}</div>'
+        f'<div class="kpi-sub">{sub}</div>'
+    )
 
-    c = st.columns(4)
-    c[0].metric("Empleados vigilados", "1.000")
-    c[1].metric(
-        "En alerta",
-        n_flagged,
-        help="Empleados cuyo día más anómalo supera el umbral de alerta.",
+
+c1, c2, c3, c4 = st.columns(4)
+
+with c1:
+    st.metric("Empleados en alerta", n_flagged, help="Riesgo por encima del umbral.")
+    st.markdown(kpi_html("", "riesgo por encima del umbral"), unsafe_allow_html=True)
+
+with c2:
+    st.metric(
+        "Alertas al día", f"{_summary['alerts_per_day']:.0f}",
+        help="Carga de trabajo para el equipo SOC.",
     )
-    c[2].metric(
-        "Alertas al día",
-        f"{alert_stats['alerts_per_day']:.0f}",
-        help="Volumen de trabajo para el equipo de seguridad.",
-    )
+    st.markdown(kpi_html("", "carga para el equipo SOC"), unsafe_allow_html=True)
+
+with c3:
     if show_labels:
-        c[3].metric(
-            "Amenazas detectadas",
-            f"{int(alert_stats['recall'] * 70)} / 70",
-            help="De las 70 amenazas reales del dataset, cuántas se detectan.",
+        n_detected = int(_summary["recall"] * 70)
+        color = GREEN if n_detected >= 45 else (AMBER if n_detected >= 30 else RED)
+        st.metric("Amenazas detectadas", f"{n_detected}/70")
+        st.markdown(
+            kpi_html("", "insiders reales en la watchlist", color),
+            unsafe_allow_html=True,
         )
     else:
-        c[3].metric("Método", data.MODELS[model_key])
+        st.metric("Detectores activos", len(data.MODELS))
+        st.markdown(kpi_html("", "especialistas combinados"), unsafe_allow_html=True)
 
-    with st.expander("❓ ¿Cómo leo esta página?"):
-        st.markdown(
-            """
-            - Cada empleado recibe un **nivel de riesgo** según lo anómalo que
-              fue su peor día: 🔴 **Alto** (revisar), 🟠 **Medio** (vigilar),
-              🟢 **Bajo** (normal).
-            - La lista de abajo está **ordenada por riesgo**: arriba, lo primero
-              que debería mirar un analista.
-            - Pulsa en la pestaña **Investigar empleado** para ver el detalle y
-              el *porqué* de cada caso.
-            - Ajusta la **Sensibilidad** en la barra lateral para generar más o
-              menos alertas.
-            """
-        )
-
-    st.markdown("#### 🚩 Empleados a revisar (mayor riesgo primero)")
-
-    # Motivo principal de cada empleado mostrado
-    top_show = wl.head(25).copy()
-    motivos = []
-    for _, r in top_show.iterrows():
-        reasons = data.explain_user_day(features, r["user"], r["peak_day"], top_n=1)
-        motivos.append(reasons[0]["label"] if reasons else "—")
-    top_show["Motivo principal"] = motivos
-
-    emoji = {"Alto": "🔴", "Medio": "🟠", "Bajo": "🟢"}
-    top_show["Nivel"] = top_show["Riesgo"].map(lambda x: f"{emoji[x]} {x}")
-
-    display_cols = {
-        "user": "Empleado",
-        "Nivel": "Riesgo",
-        "peak_day": "Día más anómalo",
-        "Motivo principal": "Motivo principal",
-    }
-    if show_labels:
-        top_show["Real"] = top_show["is_insider_user"].map(
-            {True: "⚠️ Amenaza real", False: "—"}
-        )
-        display_cols["Real"] = "¿Era amenaza real?"
-
-    st.dataframe(
-        top_show[list(display_cols.keys())].rename(columns=display_cols),
-        use_container_width=True,
-        hide_index=True,
+with c4:
+    prec = _summary["precision"]
+    color = GREEN if prec >= 0.10 else (AMBER if prec >= 0.03 else RED)
+    st.metric("Precisión", f"{prec:.1%}")
+    st.markdown(
+        kpi_html("", "de alertas son reales (típico en UEBA: bajo)", color),
+        unsafe_allow_html=True,
     )
-    if show_labels:
+
+
+# ===========================================================================
+# PESTAÑA 1 · CENTRO DE ALERTAS
+# ===========================================================================
+with tab_alertas:
+    if wl.empty:
+        st.info("No hay empleados que cumplan los filtros seleccionados.")
+    else:
+        wl_show = wl.copy()
+        wl_show["nivel"] = wl_show["risk"].apply(
+            lambda r: risk_verdict(r, risk_threshold)
+        )
+        wl_show["Riesgo"] = wl_show.apply(
+            lambda r: f"{RISK_BADGE[r['nivel']][0]} {r['risk']:.1f}", axis=1
+        )
+        wl_show["Detectado por"] = wl_show["detector"].apply(
+            lambda d: f"{d}"
+        )
+        wl_show["Día más anómalo"] = wl_show["peak_day"].astype(str)
+
+        display_cols = {
+            "user": "Empleado",
+            "Riesgo": "Riesgo",
+            "Detectado por": "Detectado por",
+            "threat_type": "Tipo de amenaza",
+            "Día más anómalo": "Día más anómalo",
+            "department": "Departamento",
+        }
+
+        if show_labels:
+            wl_show["¿Amenaza real?"] = wl_show["is_insider_user"].map(
+                {True: "🔴 Sí", False: "⚪ No"}
+            )
+            wl_show["Escenario"] = wl_show["scenario"].apply(data.scenario_name)
+            display_cols["¿Amenaza real?"] = "¿Amenaza real?"
+            display_cols["Escenario"] = "Escenario"
+
+        table = wl_show[list(display_cols.keys())].rename(columns=display_cols)
+
         st.caption(
-            "La columna *¿Era amenaza real?* solo aparece en modo demostración: "
-            "permite ver de un vistazo cuántos de los señalados eran de verdad "
-            "una amenaza."
+            "Pulsa una fila para investigar a ese empleado en la pestaña "
+            "'Investigar empleado'."
+        )
+
+        selected_user = None
+        try:
+            event = st.dataframe(
+                table,
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+            )
+            rows = event.selection.get("rows", []) if hasattr(event, "selection") else []
+            if rows:
+                selected_user = wl_show.iloc[rows[0]]["user"]
+        except TypeError:
+            # Fallback: versión de Streamlit sin soporte de on_select.
+            st.dataframe(table, use_container_width=True, hide_index=True)
+            selected_user = st.selectbox(
+                "Elegir empleado para investigar",
+                options=wl_show["user"].tolist(),
+            )
+
+        if selected_user:
+            st.session_state["selected_user"] = selected_user
+
+        st.caption(
+            "**Detectado por**: especialista responsable de la alerta. "
+            + " · ".join(
+                f"{name} → {data.MODEL_SPECIALTY[key]}"
+                for key, name in data.MODELS.items()
+            )
+        )
+
+        csv_bytes = wl_show[list(display_cols.keys())].rename(
+            columns=display_cols
+        ).to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "⬇️ Exportar a CSV",
+            data=csv_bytes,
+            file_name="watchlist_soc.csv",
+            mime="text/csv",
         )
 
 
@@ -225,163 +334,201 @@ with tab_resumen:
 # PESTAÑA 2 · INVESTIGAR EMPLEADO
 # ===========================================================================
 with tab_investigar:
-    users = wl["user"].tolist()
-    selected_user = st.selectbox(
-        "Elige un empleado para investigar",
-        options=users,
-        index=0,
-        help="La lista contiene los 50 empleados de mayor riesgo.",
-    )
+    if wl.empty:
+        st.info("No hay empleados que cumplan los filtros seleccionados.")
+    else:
+        users = wl["user"].tolist()
+        default_user = st.session_state.get("selected_user")
+        default_idx = users.index(default_user) if default_user in users else 0
 
-    if selected_user:
-        urow = wl[wl["user"] == selected_user].iloc[0]
-        band = urow["Riesgo"]
-        color = data.RISK_COLORS[band]
-        timeline = data.user_timeline(scores, features, selected_user, model_key)
-        tl = timeline.to_pandas()
-        n_user_alerts = int((tl["score"] >= threshold).sum())
-
-        user_meta = (
-            features.filter(features["user"] == selected_user)
-            .select("role", "department")
-            .tail(1)
+        selected_user = st.selectbox(
+            "Elige un empleado para investigar",
+            options=users,
+            index=default_idx,
+            help="La lista contiene los empleados de mayor riesgo (según filtros).",
         )
-        role = user_meta["role"][0] if user_meta.height else "—"
-        dept = user_meta["department"][0] if user_meta.height else "—"
 
-        # Veredicto
-        msg = {
-            "Alto": f"Riesgo ALTO — generó {n_user_alerts} día(s) de alerta. Conviene revisarlo.",
-            "Medio": "Riesgo MEDIO — comportamiento por encima de lo normal. Vigilar.",
-            "Bajo": "Riesgo BAJO — sin desviaciones relevantes.",
-        }[band]
-        st.markdown(
-            f'<div class="verdict" style="background:{color}">'
-            f"<b>{selected_user}</b> · {role} · {dept}<br>{msg}</div>",
-            unsafe_allow_html=True,
-        )
-        if show_labels and bool(urow["is_insider_user"]):
-            st.warning(
-                f"⚠️ **Modo demostración:** este empleado fue una amenaza real "
-                f"(escenario {int(urow['scenario'])} del dataset)."
+        if selected_user:
+            urow = wl[wl["user"] == selected_user].iloc[0]
+            risk_val = float(urow["risk"])
+            band = risk_verdict(risk_val, risk_threshold)
+            color = data.RISK_COLORS[band]
+            peak_day = urow["peak_day"]
+            detector_key = next(
+                (k for k, v in data.MODELS.items() if v == urow["detector"]),
+                "score_rules",
             )
 
-        # Por qué
-        st.markdown("#### ¿Por qué es sospechoso?")
-        reasons = data.explain_user_day(features, selected_user, urow["peak_day"], top_n=5)
-        if reasons:
-            st.caption(
-                f"Comparado con su propio comportamiento habitual, el "
-                f"{urow['peak_day']} hizo:"
-            )
-            for r in reasons:
-                st.markdown(
-                    f'<div class="reason"><b>{r["label"]}</b>: {r["value"]:.0f} '
-                    f"(su media diaria: {r['avg']:.2f})</div>",
-                    unsafe_allow_html=True,
+            role = urow["role"] or "—"
+            dept = urow["department"] or "—"
+
+            # Resumen automático
+            reasons = data.explain_user_day(features, selected_user, peak_day, top_n=5)
+            if reasons:
+                motivos_txt = ", ".join(
+                    f"{r['label']} ({r['value']:.0f} vs media {r['avg']:.2f})"
+                    for r in reasons
                 )
-        else:
-            st.info("No hay conductas destacadas por encima de su media.")
+            else:
+                motivos_txt = "sin conductas destacadas por encima de su media"
 
-        # Línea temporal del riesgo
-        st.markdown("#### Evolución del riesgo en el tiempo")
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=tl["day"], y=tl["score"], mode="lines",
-                name="Riesgo diario", line=dict(color="#4c6ef5"),
+            resumen = (
+                f"<b>{selected_user}</b> ({role}, {dept}) alcanzó su pico de riesgo "
+                f"el <b>{peak_day}</b> ({risk_val:.1f}/100), detectado por "
+                f"<b>{urow['detector']}</b>. Conductas destacadas: {motivos_txt}."
             )
-        )
-        fig.add_hline(
-            y=threshold, line_dash="dash", line_color="#f08c00",
-            annotation_text="Umbral de alerta", annotation_position="top left",
-        )
-        if show_labels:
-            mal = tl[tl["label_malicious_day"] == 1]
-            if not mal.empty:
-                fig.add_trace(
-                    go.Scatter(
-                        x=mal["day"], y=mal["score"], mode="markers",
-                        name="Día de amenaza real",
-                        marker=dict(color="#e03131", size=11, symbol="x"),
+            st.markdown(
+                f'<div class="verdict" style="background:{color}">{resumen}</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Badge detector
+            st.markdown(
+                f'<span class="det-badge">🔬 Detectado por: {urow["detector"]} — '
+                f'{data.MODEL_SPECIALTY[detector_key]}</span>',
+                unsafe_allow_html=True,
+            )
+
+            if show_labels and bool(urow["is_insider_user"]):
+                st.warning(
+                    f"⚠️ **Modo demostración:** este empleado fue una amenaza real "
+                    f"({data.scenario_name(urow['scenario'])})."
+                )
+
+            # Evolución temporal del riesgo unificado
+            st.markdown("#### Evolución del riesgo unificado")
+            user_risk = (
+                scores_enriched.filter(pl.col("user") == selected_user)
+                .select(
+                    "day",
+                    (pl.col("risk") * 100).alias("risk"),
+                    "label_malicious_day",
+                )
+                .sort("day")
+                .to_pandas()
+            )
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=user_risk["day"], y=user_risk["risk"], mode="lines",
+                    name="Riesgo unificado", line=dict(color=BLUE),
+                )
+            )
+            fig.add_hline(
+                y=risk_threshold * 100, line_dash="dash", line_color=AMBER,
+                annotation_text="Umbral de alerta", annotation_position="top left",
+            )
+            if show_labels:
+                mal = user_risk[user_risk["label_malicious_day"] == 1]
+                if not mal.empty:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=mal["day"], y=mal["risk"], mode="markers",
+                            name="Día de amenaza real",
+                            marker=dict(color=RED, size=11, symbol="x"),
+                        )
                     )
+            fig.update_layout(
+                height=340, margin=dict(t=10, b=10),
+                xaxis_title="Fecha", yaxis_title="Riesgo (0-100)",
+                legend=dict(orientation="h", y=1.15),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Peor día vs media
+            st.markdown("#### Su peor día frente a su rutina normal")
+            peak = features.filter(
+                (pl.col("user") == selected_user) & (pl.col("day") == peak_day)
+            ).select(data.SUSPICIOUS_FEATURES)
+            if peak.height:
+                means = features.filter(pl.col("user") == selected_user).select(
+                    [pl.col(f).mean().alias(f) for f in data.SUSPICIOUS_FEATURES]
                 )
-        fig.update_layout(
-            height=360, margin=dict(t=10, b=10),
-            xaxis_title="Fecha", yaxis_title="Nivel de riesgo",
-            legend=dict(orientation="h", y=1.12),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+                labels = [data.FEATURE_LABELS[f] for f in data.SUSPICIOUS_FEATURES]
+                peak_vals = [float(peak[f][0]) for f in data.SUSPICIOUS_FEATURES]
+                mean_vals = [float(means[f][0]) for f in data.SUSPICIOUS_FEATURES]
+                figb = go.Figure()
+                figb.add_trace(go.Bar(
+                    y=labels, x=mean_vals, name="Su media diaria",
+                    orientation="h", marker_color="#adb5bd",
+                ))
+                figb.add_trace(go.Bar(
+                    y=labels, x=peak_vals, name="Día más anómalo",
+                    orientation="h", marker_color=RED,
+                ))
+                figb.update_layout(
+                    barmode="group", height=340, margin=dict(t=10, b=10),
+                    xaxis_title="Nº de veces ese día",
+                    legend=dict(orientation="h", y=1.15),
+                )
+                st.plotly_chart(figb, use_container_width=True)
 
-        # Comportamiento del día pico vs su media
-        st.markdown("#### Su peor día frente a su rutina normal")
-        peak = features.filter(
-            (features["user"] == selected_user)
-            & (features["day"] == urow["peak_day"])
-        ).select(data.SUSPICIOUS_FEATURES)
-        if peak.height:
-            means = features.filter(features["user"] == selected_user).select(
-                [pl.col(f).mean().alias(f) for f in data.SUSPICIOUS_FEATURES]
+            # Días de mayor riesgo
+            st.markdown("#### Días de mayor riesgo")
+            top_days = (
+                scores_enriched.filter(pl.col("user") == selected_user)
+                .select("day", (pl.col("risk") * 100).round(1).alias("risk"), "detector")
+                .sort("risk", descending=True)
+                .head(5)
+                .with_columns(pl.col("detector").replace(data.MODELS))
+                .to_pandas()
             )
-            labels = [data.FEATURE_LABELS[f] for f in data.SUSPICIOUS_FEATURES]
-            peak_vals = [float(peak[f][0]) for f in data.SUSPICIOUS_FEATURES]
-            mean_vals = [float(means[f][0]) for f in data.SUSPICIOUS_FEATURES]
-            figb = go.Figure()
-            figb.add_trace(go.Bar(y=labels, x=mean_vals, name="Su media diaria",
-                                  orientation="h", marker_color="#adb5bd"))
-            figb.add_trace(go.Bar(y=labels, x=peak_vals, name="Día más anómalo",
-                                  orientation="h", marker_color="#e03131"))
-            figb.update_layout(
-                barmode="group", height=360, margin=dict(t=10, b=10),
-                xaxis_title="Nº de veces ese día", legend=dict(orientation="h", y=1.12),
+            top_days["day"] = top_days["day"].astype(str)
+            top_days = top_days.rename(
+                columns={"day": "Día", "risk": "Riesgo", "detector": "Detectado por"}
             )
-            st.plotly_chart(figb, use_container_width=True)
+            st.dataframe(top_days, use_container_width=True, hide_index=True)
 
 
 # ===========================================================================
-# PESTAÑA 3 · RENDIMIENTO DEL MÉTODO
+# PESTAÑA 3 · RENDIMIENTO
 # ===========================================================================
-with tab_modelo:
-    st.markdown("#### ¿Cómo de bueno es cada método?")
-    st.caption(
-        "Comparativa de los tres métodos a la misma carga de trabajo "
-        f"(~{ALERTS_TARGET:.0f} alertas/día). *Aciertos* = % de amenazas reales "
-        "detectadas. *Precisión* = de cada 100 alertas, cuántas son reales."
+with tab_rendimiento:
+    st.markdown("#### Por qué un panel multi-detector")
+    st.markdown(
+        "Fundir los 4 detectores en un único score no mejora al mejor especialista "
+        "solo. Sin embargo, **cada detector cubre mejor un tipo de amenaza distinto**: "
+        "el de Reglas detecta accesos fuera de horario y USB; el Autoencoder, "
+        "desviaciones sutiles; el Transformer, escaladas en el tiempo; e Isolation "
+        "Forest actúa como generalista. Mostrando los 4 y atribuyendo cada alerta "
+        "al especialista responsable, la **unión de detectores cubre muchas más "
+        "amenazas reales** que cualquiera por separado."
     )
 
     if show_labels:
+        st.markdown("#### Comparativa de detectores (misma carga de trabajo)")
         rows = []
         for mk, mname in data.MODELS.items():
-            thr = data.threshold_for_alert_rate(scores, mk, ALERTS_TARGET)
-            s = data.alerts_at_threshold(scores, mk, thr)
-            rows.append(
-                {
-                    "Método": mname,
-                    "Aciertos (recall)": f"{s['recall']:.0%}",
-                    "Precisión": f"{s['precision']:.0%}",
-                    "Alertas/día": f"{s['alerts_per_day']:.0f}",
-                }
-            )
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            thr = data.threshold_for_alert_rate(scores_enriched, mk, ALERTS_TARGET)
+            s = data.alerts_at_threshold(scores_enriched, mk, thr)
+            rows.append({
+                "Detector": mname,
+                "Especialidad": data.MODEL_SPECIALTY[mk],
+                "Aciertos (recall)": f"{s['recall']:.0%}",
+                "Precisión": f"{s['precision']:.1%}",
+            })
+        st.dataframe(rows, use_container_width=True, hide_index=True)
     else:
-        st.info("Activa el **modo demostración** para ver los aciertos de cada método.")
+        st.info("Activa el **modo demostración** para ver la comparativa de detectores.")
 
-    st.markdown("#### Distribución del riesgo en toda la plantilla")
-    sp = scores.select(model_key).to_pandas()
+    st.markdown("#### Distribución del riesgo unificado")
+    risk_vals = (scores_enriched.select((pl.col("risk") * 100).alias("risk"))
+                  .to_pandas())
     fig_h = go.Figure()
-    fig_h.add_trace(go.Histogram(x=sp[model_key], nbinsx=100, marker_color="#4c6ef5"))
+    fig_h.add_trace(go.Histogram(x=risk_vals["risk"], nbinsx=100, marker_color=BLUE))
     fig_h.add_vline(
-        x=threshold, line_dash="dash", line_color="#f08c00",
+        x=risk_threshold * 100, line_dash="dash", line_color=AMBER,
         annotation_text="Umbral de alerta",
     )
     fig_h.update_layout(
-        height=360, margin=dict(t=10, b=10),
-        xaxis_title="Nivel de riesgo", yaxis_title="Nº de días (escala log)",
+        height=340, margin=dict(t=10, b=10),
+        xaxis_title="Riesgo unificado (0-100)",
+        yaxis_title="Frecuencia (escala log)",
         yaxis_type="log",
     )
     st.plotly_chart(fig_h, use_container_width=True)
     st.caption(
-        "Casi todos los días son normales (pico a la izquierda). Solo una "
+        "Casi todos los usuario-día son normales (pico a la izquierda); solo una "
         "pequeña cola a la derecha es anómala. El umbral decide a partir de "
-        "dónde se genera una alerta: muévelo con la *Sensibilidad*."
+        "dónde se genera una alerta: ajústalo con la *Sensibilidad*."
     )
