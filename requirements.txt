@@ -14,6 +14,9 @@ torch>=2.2.0
 streamlit>=1.30.0
 plotly>=5.18.0
 
+# Plataforma SOC — ETL de carga a Supabase (scripts/seed_supabase.py)
+supabase>=2.4.0
+
 # Notebooks / EDA
 jupyter>=1.0.0
 matplotlib>=3.8.0
