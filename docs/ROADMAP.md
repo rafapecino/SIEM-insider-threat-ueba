@@ -13,6 +13,12 @@ un SIEM operativo. Para cada punto: **viabilidad** y **esfuerzo estimado**.
 
 ---
 
+> ✅ **Actualización**: los puntos **#2 (Auth + RBAC)**, **#3 (gestión/ticketing de
+> alertas)**, **#4 (persistencia real)** y **#7 (auditoría)** están **implementados**
+> en la plataforma web `webapp/` (Next.js + Supabase: login multi-rol, ciclo de vida
+> de alertas, Postgres con RLS y registro de auditoría). Quedan como trabajo futuro
+> los de mayor calado (ingesta en tiempo real, SSO/MFA corporativo, reentrenamiento).
+
 ## 🔴 Críticos — bloqueantes para producción
 
 | #   | Punto                                                                 | ¿Viable? | Esfuerzo | Notas                                                                                                                                                                                                                    |

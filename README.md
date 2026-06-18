@@ -60,10 +60,13 @@ SIEM/
 ├── 03b_transformer.ipynb  # Detector Transformer de secuencias (GPU)
 ├── 04_evaluacion.ipynb    # Curvas PR, alertas/día, detección por escenario
 ├── dashboard/
-│   ├── app.py             # Panel SOC (Streamlit)
+│   ├── app.py             # Panel SOC de investigación (Streamlit)
 │   └── data.py            # Lógica de datos (sin Streamlit, testeable)
+├── webapp/                # 🆕 Plataforma SOC web (Next.js + Supabase + Vercel)
+│   ├── src/               #    Login multi-rol, cola de alertas, investigación
+│   └── supabase/          #    Esquema + RLS (migraciones SQL)
 ├── src/config.py          # Rutas centralizadas (autodetecta Colab/local)
-├── scripts/               # Utilidades (runner de notebooks)
+├── scripts/               # Utilidades (runner de notebooks, ETL a Supabase)
 ├── requirements.txt
 ├── PLAN.md                # Plan de fases del proyecto
 └── CLAUDE.md              # Notas técnicas y convenciones
@@ -110,12 +113,27 @@ Se abre en `http://localhost:8501`.
   sirve para evaluar.
 - **Stack**: Python · Polars · scikit-learn · PyTorch · Streamlit · Plotly.
 
+## 🖥️ Plataforma SOC web (`webapp/`)
+
+Sobre el motor de detección se ha construido una **plataforma SOC funcional** estilo
+MDR (Next.js + Supabase + Vercel) que cubre los puntos #2/#3/#4/#7 del roadmap:
+
+- **Login multi-rol** (Supabase Auth): analista, administrador y cliente.
+- **Cola de alertas** priorizada por el riesgo unificado, con filtros por casuística.
+- **Investigación** por empleado: timeline de riesgo, "pico vs media", conductas
+  destacadas, asignación, ciclo de vida del caso (nuevo → investigando → escalado/
+  cerrado/falso positivo) y **notas**, todo persistido en Postgres.
+- **Auditoría** ("quién investigó a quién") y **portal de cliente** de solo lectura
+  (vistas que ocultan el _ground truth_ vía RLS).
+
+Detalles, esquema y puesta en marcha en [`webapp/README.md`](webapp/README.md).
+
 ## ⚠️ Alcance y limitaciones
 
-Este es un **prototipo de investigación**, no un SIEM de producción. Trabaja sobre
-datos históricos, sin ingesta en vivo, autenticación, persistencia en BD ni gestión
-de alertas. La hoja de ruta hacia un sistema operativo se documenta en
-[`docs/ROADMAP.md`](docs/ROADMAP.md).
+El motor es un **prototipo de investigación** sobre datos históricos (sin ingesta en
+vivo). La plataforma web añade autenticación, persistencia y gestión de alertas, pero
+no sustituye a un SIEM de producción (ingesta en tiempo real, SSO/MFA, escalado). La
+hoja de ruta completa se documenta en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## 📄 Licencia y datos
 
