@@ -1,5 +1,7 @@
 # Sentinel UEBA — Plataforma SOC (web)
 
+🔗 **En vivo: https://sentinel-ueba.vercel.app**
+
 Portal web de la plataforma SOC de detección de amenazas internas: **login
 multi-rol**, **cola de alertas**, **investigación** con trazabilidad y
 **auditoría**. Construida sobre el motor de ML del repositorio raíz (los

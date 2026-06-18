@@ -115,6 +115,9 @@ Se abre en `http://localhost:8501`.
 
 ## 🖥️ Plataforma SOC web (`webapp/`)
 
+🔗 **En vivo: https://sentinel-ueba.vercel.app** · Cuentas demo: `analyst@soc-demo.com`
+o `client@northcorp-demo.com` (contraseña `Sentinel#2026`).
+
 Sobre el motor de detección se ha construido una **plataforma SOC funcional** estilo
 MDR (Next.js + Supabase + Vercel) que cubre los puntos #2/#3/#4/#7 del roadmap:
 
