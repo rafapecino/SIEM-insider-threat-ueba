@@ -6,6 +6,7 @@ import {
   getAlertEvents,
   getDailyScores,
   getAnalysts,
+  getEvidence,
 } from "@/lib/queries";
 import { Card } from "@/components/ui";
 import {
@@ -18,6 +19,7 @@ import { RiskTimeline } from "@/components/charts/RiskTimeline";
 import { ReasonsChart } from "@/components/charts/ReasonsChart";
 import { InvestigationPanel } from "./InvestigationPanel";
 import { EventThread } from "./EventThread";
+import { EvidenceLog } from "./EvidenceLog";
 import {
   DETECTOR_SPECIALTY,
   RISK_HIGH,
@@ -37,10 +39,11 @@ export default async function AlertDetail({
   const alert = await getAlert(id);
   if (!alert) notFound();
 
-  const [events, daily, analysts] = await Promise.all([
+  const [events, daily, analysts, evidence] = await Promise.all([
     getAlertEvents(id),
     getDailyScores(alert.user_cert),
     getAnalysts(),
+    getEvidence(alert.user_cert, alert.peak_day),
   ]);
 
   const points = daily.map((d) => ({
@@ -116,6 +119,17 @@ export default async function AlertDetail({
               <ReasonsChart reasons={reasons} />
             </Card>
           )}
+
+          <Card
+            title={`Registro forense del ${fmtDate(alert.peak_day)} · ${evidence.length} eventos`}
+          >
+            <p className="text-xs mb-4" style={{ color: "var(--fg-muted)" }}>
+              Eventos crudos de los logs (acceso, USB, ficheros, correo) ese
+              día, ordenados cronológicamente. La evidencia que sustenta la
+              alerta.
+            </p>
+            <EvidenceLog evidence={evidence} />
+          </Card>
 
           <Card title="Hilo de investigación">
             <EventThread events={events} />

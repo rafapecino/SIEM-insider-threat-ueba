@@ -66,6 +66,10 @@ body {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: border-color 0.15s ease;
+}
+.soc-card:hover {
+  border-color: #2e3c5a;
 }
 .soc-card-2 {
   background: var(--bg-elev-2);

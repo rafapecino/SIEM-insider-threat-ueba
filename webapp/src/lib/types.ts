@@ -70,6 +70,20 @@ export interface AlertEvent {
   author_profile?: Pick<Profile, "full_name" | "role"> | null;
 }
 
+export type EvidenceKind = "file_copy" | "usb" | "email" | "logon";
+export type Severity = "info" | "warn" | "crit";
+
+export interface Evidence {
+  id: number;
+  user_cert: string;
+  day: string;
+  ts: string;
+  kind: EvidenceKind;
+  summary: string;
+  detail: Record<string, unknown> | null;
+  severity: Severity;
+}
+
 export interface AuditEntry {
   id: string;
   actor: string | null;

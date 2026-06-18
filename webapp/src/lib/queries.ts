@@ -4,6 +4,7 @@ import type {
   AlertEvent,
   AuditEntry,
   DailyScore,
+  Evidence,
   Profile,
 } from "@/lib/types";
 
@@ -70,6 +71,23 @@ export async function getDailyScores(userCert: string): Promise<DailyScore[]> {
     .order("day", { ascending: true });
   if (error) throw error;
   return (data ?? []) as DailyScore[];
+}
+
+/** Evidencia forense (eventos crudos) del día pico de un empleado. */
+export async function getEvidence(
+  userCert: string,
+  day: string,
+): Promise<Evidence[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("evidence")
+    .select("id, user_cert, day, ts, kind, summary, detail, severity")
+    .eq("user_cert", userCert)
+    .eq("day", day)
+    .order("ts", { ascending: true })
+    .limit(300);
+  if (error) throw error;
+  return (data ?? []) as Evidence[];
 }
 
 /** Analistas de la organización (desplegable de asignación). */

@@ -44,14 +44,18 @@ export function Kpi({
             ? "var(--accent)"
             : "var(--fg)";
   return (
-    <div className="soc-card p-4">
+    <div className="soc-card p-4 relative overflow-hidden">
+      <span
+        className="absolute left-0 top-0 h-full w-1"
+        style={{ background: color, opacity: tone ? 0.9 : 0.25 }}
+      />
       <div
-        className="text-[11px] uppercase tracking-wide"
+        className="text-[11px] uppercase tracking-wide font-medium"
         style={{ color: "var(--fg-muted)" }}
       >
         {label}
       </div>
-      <div className="text-2xl font-bold mt-1" style={{ color }}>
+      <div className="text-3xl font-bold mt-1 tabular-nums" style={{ color }}>
         {value}
       </div>
       {sub && (

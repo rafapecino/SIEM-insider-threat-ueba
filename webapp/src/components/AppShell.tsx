@@ -24,7 +24,7 @@ export function AppShell({
     <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside
-        className="w-64 shrink-0 hidden md:flex flex-col p-4 border-r"
+        className="w-64 shrink-0 hidden md:flex flex-col p-4 border-r sticky top-0 h-screen overflow-y-auto"
         style={{ background: "var(--bg-elev)" }}
       >
         <Link href="/" className="flex items-center gap-3 px-2 py-2">
