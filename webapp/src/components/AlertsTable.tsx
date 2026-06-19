@@ -19,7 +19,7 @@ export function AlertsTable({
   linkBase?: string | null;
 }) {
   return (
-    <div className="soc-card overflow-x-auto">
+    <div className="soc-card overflow-x-auto w-full max-w-full">
       <table className="soc-table">
         <thead>
           <tr>
@@ -109,12 +109,17 @@ export function AlertsTable({
                 {showGroundTruth && (
                   <td>
                     {a.is_insider ? (
-                      <span className="badge badge-high">
+                      <span
+                        className="badge badge-high"
+                        title={scenarioName(a.scenario)}
+                      >
                         <span
                           className="badge-dot"
                           style={{ background: "var(--risk-high)" }}
                         />
-                        {scenarioName(a.scenario)}
+                        <span className="truncate max-w-[130px] md:max-w-[160px]">
+                          {scenarioName(a.scenario)}
+                        </span>
                       </span>
                     ) : (
                       <span className="badge badge-neutral">
