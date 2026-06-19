@@ -37,8 +37,10 @@ export function InvestigationPanel({
         ) : (
           <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
             IA no configurada. Añade{" "}
-            <span className="font-mono">GEMINI_API_KEY</span> (gratis en Google
-            AI Studio) en las variables de entorno para activarla.
+            <span className="font-mono">GROQ_API_KEY</span> (gratis en
+            console.groq.com) o{" "}
+            <span className="font-mono">GEMINI_API_KEY</span> en las variables
+            de entorno para activarla.
           </p>
         )}
       </Card>

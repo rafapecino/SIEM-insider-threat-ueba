@@ -1,14 +1,22 @@
-// Asistente de investigación con IA (gratis) — Google Gemini Flash.
-// Solo server-side: la clave (GEMINI_API_KEY) nunca llega al navegador.
-// Se usa vía REST (sin SDK) para no añadir dependencias.
+// Asistente de investigación con IA (gratis) — agnóstico de proveedor.
+// Soporta Groq (Llama 3.3, recomendado, sin tarjeta) o Google Gemini Flash.
+// Solo server-side: las claves nunca llegan al navegador. Se usa REST (sin SDK).
 
 import type { Alert, AlertReason, Evidence } from "@/lib/types";
 import { scenarioName } from "@/lib/constants";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
+/** Proveedor activo según la clave disponible (Groq tiene prioridad). */
+function provider(): "groq" | "gemini" | null {
+  if (process.env.GROQ_API_KEY) return "groq";
+  if (process.env.GEMINI_API_KEY) return "gemini";
+  return null;
+}
 
 export function aiEnabled(): boolean {
-  return !!process.env.GEMINI_API_KEY;
+  return provider() !== null;
 }
 
 const SYSTEM = `Eres un analista senior de un SOC (Security Operations Center) especializado
@@ -59,7 +67,11 @@ function buildPrompt({
   lines.push(`- Día pico: ${alert.peak_day}`);
   if (alert.is_insider != null) {
     lines.push(
-      `- (Solo demo) ground truth: ${alert.is_insider ? `amenaza real — ${scenarioName(alert.scenario)}` : "no es insider"}`,
+      `- (Solo demo) ground truth: ${
+        alert.is_insider
+          ? `amenaza real — ${scenarioName(alert.scenario)}`
+          : "no es insider"
+      }`,
     );
   }
 
@@ -84,35 +96,61 @@ function buildPrompt({
   return lines.join("\n");
 }
 
-/** Llama a Gemini Flash y devuelve el informe en markdown. Lanza Error si falla. */
-export async function generateInvestigation(
-  ctx: InvestigationContext,
-): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY no configurada");
+async function callGroq(prompt: string): Promise<string> {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      temperature: 0.3,
+      max_tokens: 1200,
+      messages: [
+        { role: "system", content: SYSTEM },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  if (!res.ok)
+    throw new Error(`Groq ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = await res.json();
+  const text: string | undefined = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error("Groq devolvió una respuesta vacía");
+  return text.trim();
+}
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
-  const body = {
-    systemInstruction: { parts: [{ text: SYSTEM }] },
-    contents: [{ role: "user", parts: [{ text: buildPrompt(ctx) }] }],
-    generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
-  };
-
+async function callGemini(prompt: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 1200 },
+    }),
   });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Gemini ${res.status}: ${detail.slice(0, 200)}`);
-  }
-
+  if (!res.ok)
+    throw new Error(
+      `Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`,
+    );
   const data = await res.json();
   const text: string | undefined = data?.candidates?.[0]?.content?.parts
     ?.map((p: { text?: string }) => p.text ?? "")
     .join("");
   if (!text) throw new Error("Gemini devolvió una respuesta vacía");
   return text.trim();
+}
+
+/** Genera el informe de investigación en markdown. Lanza Error si falla. */
+export async function generateInvestigation(
+  ctx: InvestigationContext,
+): Promise<string> {
+  const p = provider();
+  if (!p)
+    throw new Error("IA no configurada (define GROQ_API_KEY o GEMINI_API_KEY)");
+  const prompt = buildPrompt(ctx);
+  return p === "groq" ? callGroq(prompt) : callGemini(prompt);
 }
