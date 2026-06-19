@@ -28,8 +28,10 @@ export default async function PortalHome() {
   return (
     <>
       <PageHeader
+        kicker="Portal de cliente"
         title="Estado de seguridad"
         subtitle={`${ctx.orgName ?? "Su organización"} · supervisado por el SOC de Sentinel UEBA`}
+        icon="shield-check"
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -38,24 +40,28 @@ export default async function PortalHome() {
           value={kpis.open}
           tone="accent"
           sub="por revisar"
+          icon="alerts"
         />
         <Kpi
           label="En investigación"
           value={kpis.investigating}
           tone="med"
           sub="el SOC está revisando"
+          icon="search"
         />
         <Kpi
           label="Escaladas"
           value={kpis.escalated}
           tone="high"
           sub="requieren atención"
+          icon="risk"
         />
         <Kpi
           label="Resueltas"
           value={kpis.closed}
           tone="low"
           sub="cerradas / descartadas"
+          icon="ack"
         />
       </div>
 

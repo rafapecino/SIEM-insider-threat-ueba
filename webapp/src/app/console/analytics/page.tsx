@@ -47,25 +47,39 @@ export default async function AnalyticsPage() {
   return (
     <>
       <PageHeader
+        kicker="Inteligencia"
         title="Analítica del SOC"
         subtitle="Composición de la cola de alertas y rendimiento de detección"
+        icon="analytics"
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Kpi label="Alertas totales" value={kpis.total} tone="accent" />
+        <Kpi
+          label="Alertas totales"
+          value={kpis.total}
+          tone="accent"
+          icon="alerts"
+        />
         <Kpi
           label="Riesgo alto"
           value={kpis.high}
           tone="high"
           sub="score ≥ 90"
+          icon="activity"
         />
         <Kpi
           label="Amenazas reales captadas"
           value={detected}
           tone="low"
           sub="insiders en la cola (demo)"
+          icon="check"
         />
-        <Kpi label="Cerradas" value={kpis.closed} sub="resueltas / FP" />
+        <Kpi
+          label="Cerradas"
+          value={kpis.closed}
+          sub="resueltas / FP"
+          icon="ack"
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">

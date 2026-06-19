@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NavLink } from "./NavLink";
 import { Icon } from "./icons";
+import { Clock } from "./Clock";
 
 export interface NavItem {
   href: string;
@@ -124,19 +125,32 @@ export function AppShell({
             <span className="text-sm font-semibold">Sentinel UEBA</span>
           </div>
           <div
-            className="hidden md:flex items-center gap-2 text-sm"
+            className="hidden md:flex items-center gap-2.5 text-sm"
             style={{ color: "var(--fg-muted)" }}
           >
             <Icon name="org" size={15} />
-            <span>{orgName ?? "Organización"}</span>
+            <span className="font-medium" style={{ color: "var(--fg)" }}>
+              {orgName ?? "Organización"}
+            </span>
+            <span style={{ color: "var(--fg-faint)" }}>·</span>
+            <Icon name="clock" size={14} />
+            <Clock />
           </div>
           <div className="flex items-center gap-3">
-            <span className="badge badge-low">
+            <span
+              className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+              style={{
+                color: "var(--risk-low)",
+                background: "rgba(46,230,166,0.1)",
+                border: "1px solid rgba(46,230,166,0.28)",
+                letterSpacing: "0.06em",
+              }}
+            >
               <span
-                className="badge-dot"
+                className="badge-dot pulse-dot"
                 style={{ background: "var(--risk-low)" }}
               />
-              Operativo
+              MONITORIZANDO
             </span>
             <form action="/auth/signout" method="post" className="md:hidden">
               <button

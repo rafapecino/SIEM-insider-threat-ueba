@@ -14,8 +14,10 @@ export default async function AuditPage() {
   return (
     <>
       <PageHeader
+        kicker="Cumplimiento"
         title="Registro de auditoría"
         subtitle="Quién investigó a quién y cuándo (trazabilidad GDPR / ISO 27001)"
+        icon="audit"
       />
       {log.length === 0 ? (
         <EmptyState>Aún no hay acciones registradas.</EmptyState>

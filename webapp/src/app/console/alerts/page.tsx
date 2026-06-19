@@ -34,8 +34,10 @@ export default async function AlertsQueue({
   return (
     <>
       <PageHeader
+        kicker="Triage"
         title="Cola de alertas"
         subtitle={`${alerts.length} alertas · priorizadas por riesgo unificado multi-detector`}
+        icon="alerts"
       />
       <AlertFilters departments={departments} showScenario />
       {alerts.length === 0 ? (

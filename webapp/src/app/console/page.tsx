@@ -14,8 +14,10 @@ export default async function ConsoleHome() {
   return (
     <>
       <PageHeader
+        kicker="Centro de operaciones"
         title="Resumen del SOC"
         subtitle={`Estado operativo · ${ctx.orgName ?? "Organización"}`}
+        icon="dashboard"
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -24,24 +26,28 @@ export default async function ConsoleHome() {
           value={kpis.open}
           tone="accent"
           sub="sin tomar"
+          icon="alerts"
         />
         <Kpi
           label="En investigación"
           value={kpis.investigating}
           tone="med"
           sub="en curso"
+          icon="search"
         />
         <Kpi
           label="Escaladas"
           value={kpis.escalated}
           tone="high"
           sub="prioridad alta"
+          icon="risk"
         />
         <Kpi
           label="Riesgo alto"
           value={kpis.high}
           tone="high"
           sub="score ≥ 90"
+          icon="activity"
         />
       </div>
 
