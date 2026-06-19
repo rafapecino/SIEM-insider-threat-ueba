@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Alert } from "@/lib/types";
 import { RiskBadge, StatusBadge, ThreatBadge } from "@/components/badges";
-import { fmtDate, scenarioName, riskBand } from "@/lib/constants";
+import { fmtDate, scenarioName, scenarioShort, riskBand } from "@/lib/constants";
 
 const BAR: Record<string, string> = {
   high: "var(--risk-high)",
@@ -110,16 +110,14 @@ export function AlertsTable({
                   <td>
                     {a.is_insider ? (
                       <span
-                        className="badge badge-high max-w-[140px] md:max-w-[180px] min-w-0"
+                        className="badge badge-high"
                         title={scenarioName(a.scenario)}
                       >
                         <span
-                          className="badge-dot shrink-0"
+                          className="badge-dot"
                           style={{ background: "var(--risk-high)" }}
                         />
-                        <span className="truncate">
-                          {scenarioName(a.scenario)}
-                        </span>
+                        {scenarioShort(a.scenario)}
                       </span>
                     ) : (
                       <span className="badge badge-neutral">

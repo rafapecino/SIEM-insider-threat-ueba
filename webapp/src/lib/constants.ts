@@ -67,6 +67,20 @@ export function scenarioName(n: number | null | undefined): string {
   }
 }
 
+/** Etiqueta corta de escenario para badges compactos en tablas. */
+export function scenarioShort(n: number | null | undefined): string {
+  switch (n) {
+    case 1:
+      return "Esc. 1";
+    case 2:
+      return "Esc. 2";
+    case 3:
+      return "Esc. 3";
+    default:
+      return "—";
+  }
+}
+
 export function fmtDate(d: string | null | undefined): string {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("es-ES", {
