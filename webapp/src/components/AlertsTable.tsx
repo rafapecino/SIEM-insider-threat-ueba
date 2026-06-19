@@ -110,14 +110,14 @@ export function AlertsTable({
                   <td>
                     {a.is_insider ? (
                       <span
-                        className="badge badge-high"
+                        className="badge badge-high max-w-[140px] md:max-w-[180px] min-w-0"
                         title={scenarioName(a.scenario)}
                       >
                         <span
-                          className="badge-dot"
+                          className="badge-dot shrink-0"
                           style={{ background: "var(--risk-high)" }}
                         />
-                        <span className="truncate max-w-[130px] md:max-w-[160px]">
+                        <span className="truncate">
                           {scenarioName(a.scenario)}
                         </span>
                       </span>
