@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL } from "@/lib/constants";
-import type { AlertStatus } from "@/lib/types";
+import type { Alert, AlertReason, AlertStatus } from "@/lib/types";
+import { getEvidence } from "@/lib/queries";
+import { generateInvestigation } from "@/lib/ai";
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await createClient();
@@ -95,6 +97,48 @@ export async function assignAlert(formData: FormData): Promise<void> {
   await audit("assign", alertId, userCert);
   revalidatePath(`/console/alerts/${alertId}`);
   revalidatePath("/console/alerts");
+}
+
+/** Genera un informe de investigación con IA (Gemini Flash) y lo guarda en el hilo. */
+export async function investigateWithAI(formData: FormData): Promise<void> {
+  const alertId = String(formData.get("alertId"));
+  const userCert = String(formData.get("userCert"));
+
+  const supabase = await createClient();
+  const uid = await currentUserId();
+
+  const { data: alert } = await supabase
+    .from("alerts")
+    .select("*")
+    .eq("id", alertId)
+    .single();
+  if (!alert) return;
+
+  const evidence = await getEvidence(userCert, (alert as Alert).peak_day);
+
+  let report: string;
+  try {
+    report = await generateInvestigation({
+      alert: alert as Alert,
+      reasons: ((alert as Alert).reasons ?? []) as AlertReason[],
+      evidence,
+    });
+  } catch (e) {
+    report = `⚠️ No se pudo generar el análisis con IA: ${
+      e instanceof Error ? e.message : "error desconocido"
+    }`;
+  }
+
+  await supabase.from("alert_events").insert({
+    alert_id: alertId,
+    author: uid,
+    kind: "note",
+    payload: { ai: true, provider: "gemini" },
+    note: `🤖 Análisis IA (Gemini Flash)\n\n${report}`,
+  });
+
+  await audit("ai_investigate", alertId, userCert);
+  revalidatePath(`/console/alerts/${alertId}`);
 }
 
 /** Añade una nota de investigación al hilo de la alerta. */

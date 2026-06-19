@@ -20,6 +20,7 @@ import { ReasonsChart } from "@/components/charts/ReasonsChart";
 import { InvestigationPanel } from "./InvestigationPanel";
 import { EventThread } from "./EventThread";
 import { EvidenceLog } from "./EvidenceLog";
+import { aiEnabled } from "@/lib/ai";
 import {
   DETECTOR_SPECIALTY,
   RISK_HIGH,
@@ -138,7 +139,11 @@ export default async function AlertDetail({
 
         {/* Panel de acciones */}
         <div className="space-y-6">
-          <InvestigationPanel alert={alert} analysts={analysts} />
+          <InvestigationPanel
+            alert={alert}
+            analysts={analysts}
+            aiEnabled={aiEnabled()}
+          />
         </div>
       </div>
     </>

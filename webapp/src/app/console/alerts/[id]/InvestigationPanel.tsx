@@ -1,17 +1,48 @@
 import { Card } from "@/components/ui";
 import { STATUS_ORDER, STATUS_LABEL } from "@/lib/constants";
 import type { Alert, Profile } from "@/lib/types";
-import { changeStatus, assignAlert, addNote } from "../../actions";
+import {
+  changeStatus,
+  assignAlert,
+  addNote,
+  investigateWithAI,
+} from "../../actions";
 
 export function InvestigationPanel({
   alert,
   analysts,
+  aiEnabled,
 }: {
   alert: Alert;
   analysts: Profile[];
+  aiEnabled: boolean;
 }) {
   return (
     <>
+      {/* Asistente de investigación con IA */}
+      <Card title="Asistente de investigación (IA)">
+        {aiEnabled ? (
+          <form action={investigateWithAI} className="space-y-2">
+            <input type="hidden" name="alertId" value={alert.id} />
+            <input type="hidden" name="userCert" value={alert.user_cert} />
+            <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+              Genera un triage (amenaza real / falso positivo), un resumen y los
+              próximos pasos a partir de la evidencia. Se añade al hilo del
+              caso.
+            </p>
+            <button className="btn btn-primary w-full text-sm" type="submit">
+              ✨ Investigar con IA
+            </button>
+          </form>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+            IA no configurada. Añade{" "}
+            <span className="font-mono">GEMINI_API_KEY</span> (gratis en Google
+            AI Studio) en las variables de entorno para activarla.
+          </p>
+        )}
+      </Card>
+
       <Card title="Gestión del caso">
         {/* Estado */}
         <form action={changeStatus} className="space-y-2">

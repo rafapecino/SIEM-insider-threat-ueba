@@ -25,7 +25,9 @@ export function EventThread({ events }: { events: AlertEvent[] }) {
             {KIND_ICON[e.kind] ?? "•"}
           </div>
           <div className="min-w-0">
-            <div className="text-sm">{e.note || e.kind}</div>
+            <div className="text-sm whitespace-pre-wrap break-words">
+              {e.note || e.kind}
+            </div>
             <div className="text-[11px]" style={{ color: "var(--fg-faint)" }}>
               {e.author_profile?.full_name || "Sistema"} ·{" "}
               {fmtDateTime(e.created_at)}
