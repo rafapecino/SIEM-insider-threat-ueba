@@ -219,6 +219,21 @@ body {
   background: rgba(56, 189, 248, 0.04);
 }
 
+.soc-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  display: inline-block;
+  animation: soc-spin 0.7s linear infinite;
+}
+@keyframes soc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .link {
   color: var(--accent);
   text-decoration: none;

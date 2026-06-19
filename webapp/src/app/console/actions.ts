@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { STATUS_LABEL } from "@/lib/constants";
 import type { Alert, AlertReason, AlertStatus } from "@/lib/types";
 import { getEvidence } from "@/lib/queries";
-import { generateInvestigation } from "@/lib/ai";
+import { generateInvestigation, providerLabel } from "@/lib/ai";
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await createClient();
@@ -133,8 +133,8 @@ export async function investigateWithAI(formData: FormData): Promise<void> {
     alert_id: alertId,
     author: uid,
     kind: "note",
-    payload: { ai: true, provider: "gemini" },
-    note: `🤖 Análisis IA (Gemini Flash)\n\n${report}`,
+    payload: { ai: true, provider: providerLabel() },
+    note: report,
   });
 
   await audit("ai_investigate", alertId, userCert);

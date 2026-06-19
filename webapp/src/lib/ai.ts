@@ -19,6 +19,14 @@ export function aiEnabled(): boolean {
   return provider() !== null;
 }
 
+/** Nombre legible del proveedor/modelo activo (para etiquetar el informe). */
+export function providerLabel(): string {
+  const p = provider();
+  if (p === "groq") return "Groq · Llama 3.3 70B";
+  if (p === "gemini") return "Google Gemini Flash";
+  return "IA";
+}
+
 const SYSTEM = `Eres un analista senior de un SOC (Security Operations Center) especializado
 en amenazas internas (insider threats). Recibes una alerta generada por un motor UEBA y la
 evidencia forense del día. Redacta un informe de investigación claro y accionable, en español,

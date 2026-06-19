@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { STATUS_ORDER, STATUS_LABEL } from "@/lib/constants";
 import type { Alert, Profile } from "@/lib/types";
 import {
@@ -7,6 +8,8 @@ import {
   addNote,
   investigateWithAI,
 } from "../../actions";
+
+const labelCls = "text-[11px] uppercase tracking-wide font-medium";
 
 export function InvestigationPanel({
   alert,
@@ -20,22 +23,42 @@ export function InvestigationPanel({
   return (
     <>
       {/* Asistente de investigación con IA */}
-      <Card title="Asistente de investigación (IA)">
+      <div
+        className="soc-card p-5"
+        style={{
+          borderColor: "rgba(56,189,248,0.32)",
+          background:
+            "linear-gradient(180deg, rgba(56,189,248,0.06), rgba(56,189,248,0) 70%), var(--bg-elev)",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-base">✨</span>
+          <h3 className="text-sm font-semibold">Asistente de investigación</h3>
+        </div>
         {aiEnabled ? (
-          <form action={investigateWithAI} className="space-y-2">
+          <form action={investigateWithAI} className="space-y-3">
             <input type="hidden" name="alertId" value={alert.id} />
             <input type="hidden" name="userCert" value={alert.user_cert} />
-            <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
-              Genera un triage (amenaza real / falso positivo), un resumen y los
-              próximos pasos a partir de la evidencia. Se añade al hilo del
-              caso.
+            <p
+              className="text-xs leading-relaxed"
+              style={{ color: "var(--fg-muted)" }}
+            >
+              La IA analiza la alerta y la evidencia del día y redacta un triage
+              (amenaza real / falso positivo), técnica MITRE y próximos pasos.
+              Se guarda en el hilo del caso.
             </p>
-            <button className="btn btn-primary w-full text-sm" type="submit">
+            <SubmitButton
+              className="btn btn-primary w-full text-sm"
+              pendingText="Generando informe…"
+            >
               ✨ Investigar con IA
-            </button>
+            </SubmitButton>
           </form>
         ) : (
-          <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
+          <p
+            className="text-xs leading-relaxed"
+            style={{ color: "var(--fg-muted)" }}
+          >
             IA no configurada. Añade{" "}
             <span className="font-mono">GROQ_API_KEY</span> (gratis en
             console.groq.com) o{" "}
@@ -43,17 +66,14 @@ export function InvestigationPanel({
             de entorno para activarla.
           </p>
         )}
-      </Card>
+      </div>
 
       <Card title="Gestión del caso">
         {/* Estado */}
         <form action={changeStatus} className="space-y-2">
           <input type="hidden" name="alertId" value={alert.id} />
           <input type="hidden" name="userCert" value={alert.user_cert} />
-          <label
-            className="text-[11px] uppercase tracking-wide"
-            style={{ color: "var(--fg-muted)" }}
-          >
+          <label className={labelCls} style={{ color: "var(--fg-muted)" }}>
             Estado
           </label>
           <select
@@ -67,9 +87,9 @@ export function InvestigationPanel({
               </option>
             ))}
           </select>
-          <button className="btn btn-ghost w-full text-sm" type="submit">
+          <SubmitButton pendingText="Actualizando…">
             Actualizar estado
-          </button>
+          </SubmitButton>
         </form>
 
         <div className="my-4 border-t" />
@@ -78,10 +98,7 @@ export function InvestigationPanel({
         <form action={assignAlert} className="space-y-2">
           <input type="hidden" name="alertId" value={alert.id} />
           <input type="hidden" name="userCert" value={alert.user_cert} />
-          <label
-            className="text-[11px] uppercase tracking-wide"
-            style={{ color: "var(--fg-muted)" }}
-          >
+          <label className={labelCls} style={{ color: "var(--fg-muted)" }}>
             Asignar a
           </label>
           <select
@@ -96,9 +113,12 @@ export function InvestigationPanel({
               </option>
             ))}
           </select>
-          <button className="btn btn-primary w-full text-sm" type="submit">
+          <SubmitButton
+            className="btn btn-primary w-full text-sm"
+            pendingText="Asignando…"
+          >
             Asignar caso
-          </button>
+          </SubmitButton>
         </form>
       </Card>
 
@@ -114,9 +134,7 @@ export function InvestigationPanel({
             className="soc-input"
             style={{ resize: "vertical" }}
           />
-          <button className="btn btn-ghost w-full text-sm" type="submit">
-            Guardar nota
-          </button>
+          <SubmitButton pendingText="Guardando…">Guardar nota</SubmitButton>
         </form>
       </Card>
     </>
