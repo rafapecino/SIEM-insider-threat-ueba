@@ -102,6 +102,8 @@ async function callGroq(prompt: string): Promise<string> {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
