@@ -1,10 +1,11 @@
 import type { Evidence, EvidenceKind, Severity } from "@/lib/types";
+import { Icon } from "@/components/icons";
 
 const KIND_ICON: Record<EvidenceKind, string> = {
-  file_copy: "📄",
-  usb: "🔌",
-  email: "✉️",
-  logon: "🔑",
+  file_copy: "file",
+  usb: "usb",
+  email: "mail",
+  logon: "logon",
 };
 
 const KIND_LABEL: Record<EvidenceKind, string> = {
@@ -115,7 +116,11 @@ export function EvidenceLog({ evidence }: { evidence: Evidence[] }) {
               >
                 {fmtTime(e.ts)}
               </span>
-              <span className="text-sm">{KIND_ICON[e.kind]}</span>
+              <Icon
+                name={KIND_ICON[e.kind]}
+                size={14}
+                style={{ color: SEV_COLOR[e.severity] }}
+              />
               <span
                 className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded"
                 style={{

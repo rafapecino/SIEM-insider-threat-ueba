@@ -21,6 +21,7 @@ import { InvestigationPanel } from "./InvestigationPanel";
 import { EventThread } from "./EventThread";
 import { EvidenceLog } from "./EvidenceLog";
 import { aiEnabled } from "@/lib/ai";
+import { Icon } from "@/components/icons";
 import {
   DETECTOR_SPECIALTY,
   RISK_HIGH,
@@ -74,9 +75,19 @@ export default async function AlertDetail({
       </p>
 
       {alert.is_insider && (
-        <div className="badge badge-high mb-6 px-4 py-2">
-          ⚠️ Modo demostración: este empleado fue una amenaza real (
-          {scenarioName(alert.scenario)}).
+        <div
+          className="flex items-center gap-2 text-sm rounded-[10px] px-4 py-2.5 mb-6"
+          style={{
+            color: "#ffd2dc",
+            background: "rgba(251,94,124,0.1)",
+            border: "1px solid rgba(251,94,124,0.28)",
+          }}
+        >
+          <Icon name="risk" size={15} />
+          <span>
+            <b style={{ fontWeight: 600 }}>Modo demostración:</b> este empleado
+            fue una amenaza real ({scenarioName(alert.scenario)}).
+          </span>
         </div>
       )}
 

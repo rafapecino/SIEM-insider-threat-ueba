@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
+import { Icon } from "@/components/icons";
 import { STATUS_ORDER, STATUS_LABEL } from "@/lib/constants";
 import type { Alert, Profile } from "@/lib/types";
 import {
@@ -32,7 +33,7 @@ export function InvestigationPanel({
         }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-base">✨</span>
+          <Icon name="ai" size={16} style={{ color: "var(--accent)" }} />
           <h3 className="text-sm font-semibold">Asistente de investigación</h3>
         </div>
         {aiEnabled ? (
@@ -51,7 +52,7 @@ export function InvestigationPanel({
               className="btn btn-primary w-full text-sm"
               pendingText="Generando informe…"
             >
-              ✨ Investigar con IA
+              <Icon name="ai" size={15} /> Investigar con IA
             </SubmitButton>
           </form>
         ) : (

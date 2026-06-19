@@ -9,7 +9,7 @@ export default async function PortalLayout({
   const ctx = await requireClient();
 
   const nav: NavItem[] = [
-    { href: "/portal", label: "Mi seguridad", icon: "🛡️" },
+    { href: "/portal", label: "Mi seguridad", icon: "shield-check" },
   ];
 
   return (

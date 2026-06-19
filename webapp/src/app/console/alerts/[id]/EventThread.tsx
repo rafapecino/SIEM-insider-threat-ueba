@@ -1,12 +1,13 @@
 import type { AlertEvent } from "@/lib/types";
 import { fmtDateTime } from "@/lib/constants";
 import { Markdown } from "@/components/Markdown";
+import { Icon } from "@/components/icons";
 
 const KIND_ICON: Record<string, string> = {
-  status_change: "🔄",
-  assignment: "👤",
-  note: "📝",
-  acknowledge: "✅",
+  status_change: "status",
+  assignment: "assign",
+  note: "note",
+  acknowledge: "ack",
 };
 
 function isAI(e: AlertEvent): boolean {
@@ -30,7 +31,7 @@ function AICard({ e }: { e: AlertEvent }) {
         className="flex items-center gap-2 px-3 py-2 border-b"
         style={{ borderColor: "rgba(56,189,248,0.2)" }}
       >
-        <span>✨</span>
+        <Icon name="ai" size={14} style={{ color: "var(--accent)" }} />
         <span
           className="text-xs font-semibold"
           style={{ color: "var(--accent)" }}
@@ -59,8 +60,20 @@ export function EventThread({ events }: { events: AlertEvent[] }) {
     <ol className="space-y-3">
       {events.map((e) => (
         <li key={e.id} className="flex gap-3">
-          <div className="text-base leading-none mt-1 shrink-0">
-            {isAI(e) ? "✨" : (KIND_ICON[e.kind] ?? "•")}
+          <div
+            className="mt-1 shrink-0 grid place-items-center rounded-lg"
+            style={{
+              width: 26,
+              height: 26,
+              background: "var(--surface-2)",
+              border: "1px solid var(--border)",
+              color: isAI(e) ? "var(--accent)" : "var(--fg-muted)",
+            }}
+          >
+            <Icon
+              name={isAI(e) ? "ai" : (KIND_ICON[e.kind] ?? "note")}
+              size={14}
+            />
           </div>
           <div className="min-w-0 flex-1">
             {isAI(e) ? (

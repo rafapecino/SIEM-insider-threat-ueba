@@ -1,12 +1,22 @@
 import type { AlertStatus } from "@/lib/types";
 import { riskBand, RISK_BAND_LABEL, STATUS_LABEL } from "@/lib/constants";
+import { Icon } from "./icons";
+
+const RISK_DOT: Record<string, string> = {
+  high: "var(--risk-high)",
+  med: "var(--risk-med)",
+  low: "var(--risk-low)",
+};
 
 export function RiskBadge({ risk }: { risk: number }) {
   const band = riskBand(risk);
-  const dot = band === "high" ? "🔴" : band === "med" ? "🟠" : "🟢";
   return (
     <span className={`badge badge-${band}`}>
-      {dot} {risk.toFixed(0)} · {RISK_BAND_LABEL[band]}
+      <span className="badge-dot" style={{ background: RISK_DOT[band] }} />
+      {risk.toFixed(0)}
+      <span style={{ opacity: 0.6, fontWeight: 500 }}>
+        · {RISK_BAND_LABEL[band]}
+      </span>
     </span>
   );
 }
@@ -28,5 +38,10 @@ export function ThreatBadge({ threat }: { threat: string | null }) {
 }
 
 export function DetectorBadge({ detector }: { detector: string }) {
-  return <span className="badge badge-neutral">🔬 {detector}</span>;
+  return (
+    <span className="badge badge-neutral">
+      <Icon name="detector" size={12} />
+      {detector}
+    </span>
+  );
 }

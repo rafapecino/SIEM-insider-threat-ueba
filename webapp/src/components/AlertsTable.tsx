@@ -66,10 +66,20 @@ export function AlertsTable({
                 <td>
                   {a.is_insider ? (
                     <span className="badge badge-high">
-                      🔴 {scenarioName(a.scenario)}
+                      <span
+                        className="badge-dot"
+                        style={{ background: "var(--risk-high)" }}
+                      />
+                      {scenarioName(a.scenario)}
                     </span>
                   ) : (
-                    <span className="badge badge-neutral">⚪ No</span>
+                    <span className="badge badge-neutral">
+                      <span
+                        className="badge-dot"
+                        style={{ background: "var(--fg-faint)" }}
+                      />
+                      No
+                    </span>
                   )}
                 </td>
               )}

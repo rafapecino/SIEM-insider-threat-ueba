@@ -10,12 +10,12 @@ export default async function ConsoleLayout({
   const isAdmin = ctx.profile.role === "admin";
 
   const nav: NavItem[] = [
-    { href: "/console", label: "Resumen", icon: "📊" },
-    { href: "/console/alerts", label: "Cola de alertas", icon: "🚨" },
-    { href: "/console/analytics", label: "Analítica", icon: "📈" },
+    { href: "/console", label: "Resumen", icon: "dashboard" },
+    { href: "/console/alerts", label: "Cola de alertas", icon: "alerts" },
+    { href: "/console/analytics", label: "Analítica", icon: "analytics" },
   ];
   if (isAdmin) {
-    nav.push({ href: "/console/audit", label: "Auditoría", icon: "🧾" });
+    nav.push({ href: "/console/audit", label: "Auditoría", icon: "audit" });
   }
 
   return (
